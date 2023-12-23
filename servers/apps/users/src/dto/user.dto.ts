@@ -32,7 +32,7 @@ export class ActivationDto {
 
   @Field()
   @IsNotEmpty({ message: 'Activation code is required.' })
-  activationCode: number;
+  activationCode: string;
 }
 
 @InputType()

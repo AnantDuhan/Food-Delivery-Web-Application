@@ -7,6 +7,7 @@ import { PrismaService } from '../../../prisma/Prisma.service';
 import { Response } from 'express';
 import * as bcrypt from 'bcrypt';
 import { EmailService } from './email/email.service';
+import { TokenSender } from './utils/sendToken';
 
 interface UserData {
   name: string;
@@ -27,6 +28,7 @@ export class UsersService {
   // register user
   async register(registerDto: RegisterDto, response: Response) {
     const { name, email, password, phone_number } = registerDto;
+
     const isEmailExist = await this.prisma.user.findUnique({
       where: {
         email,
@@ -62,6 +64,8 @@ export class UsersService {
 
     const activationCode = activationToken.activationCode;
 
+    const activation_token = activationToken.token;
+
     await this.emailService.sendMail({
       email,
       subject: 'Activate your account!',
@@ -70,17 +74,35 @@ export class UsersService {
       activationCode,
     });
 
-    return { activationToken, response };
+    return { activation_token, response };
+  }
+
+  // create activation token
+  async createActivationToken(user: UserData) {
+    const activationCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+    const token = this.jwtService.sign(
+      {
+        user,
+        activationCode,
+      },
+      {
+        secret: this.configService.get<string>('JWT_SECRET'),
+        expiresIn: '1h',
+      },
+    );
+
+    return { token, activationCode };
   }
 
   // activation user
   async activateUser(activationDto: ActivationDto, response: Response) {
     const { activationToken, activationCode } = activationDto;
 
-    const newUser: { user: UserData; activationCode: number } =
+    const newUser: { user: UserData; activationCode: string } =
       this.jwtService.verify(activationToken, {
         secret: this.configService.get<string>('JWT_SECRET'),
-      } as JwtVerifyOptions) as { user: UserData; activationCode: number };
+      } as JwtVerifyOptions) as { user: UserData; activationCode: string };
 
     if (newUser.activationCode !== activationCode) {
       throw new BadRequestException('Invalid activation code.');
@@ -110,32 +132,36 @@ export class UsersService {
     return { user, response };
   }
 
-  // create activation token
-  async createActivationToken(user: UserData) {
-    const activationCode = Math.floor(1000 + Math.random() * 9000);
-
-    const token = this.jwtService.sign(
-      {
-        user,
-        activationCode,
-      },
-      {
-        secret: this.configService.get<string>('JWT_SECRET'),
-        expiresIn: '1h',
-      },
-    );
-
-    return { token, activationCode };
-  }
-
   // login user service
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
-    const user = {
-      email,
-      password,
-    };
-    return user;
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    if (user && (await this.comparePassword(password, user.password))) {
+      const tokenSender = new TokenSender(this.configService, this.jwtService);
+      return tokenSender.sendToken(user);
+    } else {
+      return {
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        error: {
+          message: 'Invalid email or password',
+        },
+      };
+    }
+  }
+
+  // compare with hashed password
+  async comparePassword(
+    password: string,
+    hashedPassword: string,
+  ): Promise<boolean> {
+    return await bcrypt.compare(password, hashedPassword);
   }
 
   async getUsers() {

@@ -19,10 +19,10 @@ import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
           },
         },
         defaults: {
-          from: 'Duhans Zaika',
+          from: 'Becodemy',
         },
         template: {
-          dir: join(__dirname, '../../../servers/email-templates'),
+          dir: join(__dirname, '../../../../servers/email-templates'),
           adapter: new EjsAdapter(),
           options: {
             strict: false,
@@ -33,5 +33,6 @@ import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
     }),
   ],
   providers: [EmailService],
+  exports: [EmailService],
 })
 export class EmailModule {}

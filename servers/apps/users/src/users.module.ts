@@ -11,7 +11,6 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../../prisma/Prisma.service';
 import { UsersResolver } from './user.resolver';
 import { EmailModule } from './email/email.module';
-import { EmailService } from './email/email.service';
 
 @Module({
   imports: [
@@ -33,7 +32,6 @@ import { EmailService } from './email/email.service';
     JwtService,
     PrismaService,
     UsersResolver,
-    EmailService
   ],
 })
 export class UsersModule {}
